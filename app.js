@@ -12,6 +12,7 @@ const pauseModal = document.getElementById("pauseModal");
 const resultModal = document.getElementById("resultModal");
 
 const playButton = document.getElementById("playButton");
+const muteButton = document.getElementById("muteButton");
 const pauseButton = document.getElementById("pauseButton");
 const resumeButton = document.getElementById("resumeButton");
 const pauseMenuButton = document.getElementById("pauseMenuButton");
@@ -99,7 +100,11 @@ const CELEBRATION_DURATION = 1.5;
 let pendingWinResult = false;
 let lastFrameTime = performance.now();
 
+let audioContext = null;
+let muted = false;
+
 let saveData = loadSaveData();
+muted = Boolean(saveData.muted);
 
 /* Create a safe default save object. */
 function createDefaultSave() {
@@ -107,7 +112,8 @@ function createDefaultSave() {
         highScore: 0,
         currentLevel: 1,
         levelHighScores: {},
-        stars: {}
+        stars: {},
+        muted: false
     };
 }
 
@@ -128,7 +134,8 @@ function loadSaveData() {
             highScore: Number(parsed.highScore) || 0,
             currentLevel: clamp(Number(parsed.currentLevel) || 1, 1, MAX_LEVEL),
             levelHighScores: parsed.levelHighScores || {},
-            stars: parsed.stars || {}
+            stars: parsed.stars || {},
+            muted: typeof parsed.muted === "boolean" ? parsed.muted : false
         };
     } catch (error) {
         return fallback;
@@ -138,6 +145,7 @@ function loadSaveData() {
 /* Save progress to localStorage. */
 function saveProgress() {
     try {
+        saveData.muted = muted;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
     } catch (error) {
         console.warn("Color Dominion progress could not be saved.", error);
@@ -152,6 +160,262 @@ function clamp(value, minimum, maximum) {
 /* Return a random integer below a maximum. */
 function randomInt(maximum) {
     return Math.floor(Math.random() * maximum);
+}
+
+/* Lazily create the Web Audio context after a user gesture. */
+function ensureAudioContext() {
+    try {
+        if (!audioContext) {
+            const AudioContextClass =
+                window.AudioContext ||
+                window.webkitAudioContext;
+
+            if (!AudioContextClass) {
+                return;
+            }
+
+            audioContext = new AudioContextClass();
+        }
+
+        if (audioContext.state === "suspended") {
+            const resumePromise = audioContext.resume();
+
+            if (
+                resumePromise &&
+                typeof resumePromise.catch === "function"
+            ) {
+                resumePromise.catch(function () {
+                    return;
+                });
+            }
+        }
+    } catch (error) {
+        console.warn("Color Dominion audio could not be initialized.", error);
+    }
+}
+
+/* Create a short noise buffer for synthesized sound effects. */
+function createNoiseBuffer(duration) {
+    if (!audioContext) {
+        return null;
+    }
+
+    const frameCount = Math.max(
+        1,
+        Math.floor(audioContext.sampleRate * duration)
+    );
+
+    const buffer = audioContext.createBuffer(
+        1,
+        frameCount,
+        audioContext.sampleRate
+    );
+
+    const data = buffer.getChannelData(0);
+
+    for (let index = 0; index < frameCount; index += 1) {
+        data[index] = Math.random() * 2 - 1;
+    }
+
+    return buffer;
+}
+
+/* Play one synthesized cork-pop with a fizzy bottle tail. */
+function playCorkPop(clusterSize) {
+    if (muted || !audioContext) {
+        return;
+    }
+
+    try {
+        if (audioContext.state !== "running") {
+            return;
+        }
+
+        const now = audioContext.currentTime;
+        const sizeAmount = clamp(
+            (clusterSize - 3) / 7,
+            0,
+            1
+        );
+
+        const pitchScale = 1 + sizeAmount * 0.4;
+        const volumeScale = 1 + sizeAmount * 0.3;
+
+        const outputGain = audioContext.createGain();
+
+        outputGain.gain.setValueAtTime(
+            0.78 * volumeScale,
+            now
+        );
+
+        outputGain.connect(audioContext.destination);
+
+        createCorkClick(
+            now,
+            pitchScale,
+            outputGain
+        );
+
+        createCorkThunk(
+            now,
+            pitchScale,
+            outputGain
+        );
+
+        createCorkFizz(
+            now,
+            pitchScale,
+            outputGain
+        );
+    } catch (error) {
+        console.warn("Color Dominion pop sound could not play.", error);
+    }
+}
+
+/* Create the sharp high-pass cork transient. */
+function createCorkClick(startTime, pitchScale, destination) {
+    const clickDuration = 0.015;
+    const noiseBuffer = createNoiseBuffer(clickDuration);
+
+    if (!noiseBuffer) {
+        return;
+    }
+
+    const source = audioContext.createBufferSource();
+    const filter = audioContext.createBiquadFilter();
+    const gain = audioContext.createGain();
+
+    source.buffer = noiseBuffer;
+
+    filter.type = "highpass";
+    filter.frequency.setValueAtTime(
+        2400 * pitchScale,
+        startTime
+    );
+
+    filter.Q.setValueAtTime(0.7, startTime);
+
+    gain.gain.setValueAtTime(0.0001, startTime);
+    gain.gain.exponentialRampToValueAtTime(
+        0.8,
+        startTime + 0.0015
+    );
+    gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        startTime + clickDuration
+    );
+
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(destination);
+
+    source.start(startTime);
+    source.stop(startTime + clickDuration);
+}
+
+/* Create the low cork thunk with a downward pitch bend. */
+function createCorkThunk(startTime, pitchScale, destination) {
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    oscillator.type = "sine";
+
+    oscillator.frequency.setValueAtTime(
+        220 * pitchScale,
+        startTime
+    );
+
+    oscillator.frequency.exponentialRampToValueAtTime(
+        90 * pitchScale,
+        startTime + 0.08
+    );
+
+    gain.gain.setValueAtTime(0.0001, startTime);
+    gain.gain.exponentialRampToValueAtTime(
+        0.65,
+        startTime + 0.003
+    );
+    gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        startTime + 0.095
+    );
+
+    oscillator.connect(gain);
+    gain.connect(destination);
+
+    oscillator.start(startTime);
+    oscillator.stop(startTime + 0.1);
+}
+
+/* Create the decaying filtered fizz after the cork pop. */
+function createCorkFizz(startTime, pitchScale, destination) {
+    const fizzDuration = 0.35;
+    const fizzStart = startTime + 0.012;
+    const fizzEnd = fizzStart + fizzDuration;
+    const noiseBuffer = createNoiseBuffer(fizzDuration);
+
+    if (!noiseBuffer) {
+        return;
+    }
+
+    const source = audioContext.createBufferSource();
+    const filter = audioContext.createBiquadFilter();
+    const gain = audioContext.createGain();
+
+    source.buffer = noiseBuffer;
+
+    filter.type = "bandpass";
+    filter.Q.setValueAtTime(0.8, fizzStart);
+
+    filter.frequency.setValueAtTime(
+        3400 * pitchScale,
+        fizzStart
+    );
+
+    filter.frequency.exponentialRampToValueAtTime(
+        1800 * pitchScale,
+        fizzEnd
+    );
+
+    gain.gain.setValueAtTime(0.0001, fizzStart);
+    gain.gain.exponentialRampToValueAtTime(
+        0.25,
+        fizzStart + 0.008
+    );
+    gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        fizzEnd
+    );
+
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(destination);
+
+    source.start(fizzStart);
+    source.stop(fizzEnd);
+}
+
+/* Update the mute button icon and accessibility state. */
+function updateMuteButton() {
+    muteButton.textContent = muted ? "🔇" : "🔊";
+    muteButton.setAttribute(
+        "aria-label",
+        muted ? "Unmute sound" : "Mute sound"
+    );
+    muteButton.setAttribute(
+        "aria-pressed",
+        muted ? "true" : "false"
+    );
+    muteButton.classList.toggle("muted", muted);
+}
+
+/* Toggle sound on or off and persist the choice. */
+function toggleMute() {
+    muted = !muted;
+
+    saveData.muted = muted;
+    saveProgress();
+    updateMuteButton();
 }
 
 /* Resize the canvas for its displayed size and device pixel ratio. */
@@ -475,8 +739,10 @@ function getPointerPosition(event) {
     };
 }
 
-/* Begin aiming on pointer down. */
+/* Begin aiming on pointer down and unlock audio. */
 function handlePointerDown(event) {
+    ensureAudioContext();
+
     if (gameState !== "playing" || projectile || celebrationActive) {
         return;
     }
@@ -802,8 +1068,14 @@ function findColorCluster(startRow, startCol, color) {
     return cluster;
 }
 
-/* Pop a matching cluster and create canvas effects. */
+/* Pop a matching cluster, create canvas effects, and play one cork-pop sound. */
 function popCluster(cluster) {
+    try {
+        playCorkPop(cluster.length);
+    } catch (error) {
+        console.warn("Color Dominion pop sound failed safely.", error);
+    }
+
     for (const bubble of cluster) {
         const position = gridToPixel(bubble.row, bubble.col);
 
@@ -1789,6 +2061,11 @@ function registerEvents() {
         startSelectedLevel
     );
 
+    muteButton.addEventListener(
+        "click",
+        toggleMute
+    );
+
     pauseButton.addEventListener(
         "click",
         pauseGame
@@ -1832,6 +2109,7 @@ function initializeGame() {
     buildLevelSelect();
     registerEvents();
     updateHud();
+    updateMuteButton();
 
     lastFrameTime = performance.now();
 
