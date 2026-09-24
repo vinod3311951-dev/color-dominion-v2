@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    >
+    <meta name="theme-color" content="#10172a">
+    <title>Color Dominion</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main id="gameShell">
+        <header id="hud">
+            <div class="hud-stat">
+                <span class="hud-label">SCORE</span>
+                <span id="scoreValue">0</span>
+            </div>
+
+            <div class="hud-title">
+                <strong>COLOR DOMINION</strong>
+                <span id="levelValue">Level 1</span>
+            </div>
+
+            <button id="pauseButton" class="icon-button" type="button" aria-label="Pause game">
+                II
+            </button>
+        </header>
+
+        <section id="gameArea">
+            <canvas id="gameCanvas" aria-label="Color Dominion bubble puzzle game"></canvas>
+        </section>
+
+        <div id="statusBar" aria-live="polite">
+            Tap or drag to aim
+        </div>
+
+        <div id="startModal" class="modal-backdrop">
+            <section class="modal-card">
+                <div class="brand-orb" aria-hidden="true">◆</div>
+                <p class="eyebrow">RESTORE THE WORLDS</p>
+                <h1>Color Dominion</h1>
+                <p class="modal-copy">
+                    Aim, match three or more colours, and clear the board.
+                </p>
+
+                <div id="levelSelect" class="level-select" aria-label="Level selection"></div>
+
+                <button id="playButton" class="primary-button" type="button">
+                    Play
+                </button>
+
+                <p class="small-copy">
+                    Bubble symbols make every colour easier to identify.
+                </p>
+            </section>
+        </div>
+
+        <div id="pauseModal" class="modal-backdrop hidden">
+            <section class="modal-card compact-card">
+                <p class="eyebrow">GAME PAUSED</p>
+                <h2>Take Your Shot When Ready</h2>
+
+                <button id="resumeButton" class="primary-button" type="button">
+                    Resume
+                </button>
+
+                <button id="pauseMenuButton" class="secondary-button" type="button">
+                    Menu
+                </button>
+            </section>
+        </div>
+
+        <div id="resultModal" class="modal-backdrop hidden">
+            <section class="modal-card compact-card">
+                <p id="resultEyebrow" class="eyebrow">LEVEL COMPLETE</p>
+                <h2 id="resultTitle">World Restored</h2>
+
+                <div id="resultStars" class="result-stars" aria-label="Star rating">
+                    ☆ ☆ ☆
+                </div>
+
+                <p id="resultMessage" class="modal-copy">
+                    Brilliant work. This world shines again.
+                </p>
+
+                <div class="result-score">
+                    <span>Score</span>
+                    <strong id="resultScore">0</strong>
+                </div>
+
+                <button id="nextButton" class="primary-button" type="button">
+                    Next Level
+                </button>
+
+                <button id="retryButton" class="secondary-button" type="button">
+                    Retry
+                </button>
+
+                <button id="menuButton" class="text-button" type="button">
+                    Menu
+                </button>
+            </section>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+  </html>
