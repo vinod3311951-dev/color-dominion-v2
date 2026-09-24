@@ -220,8 +220,8 @@ function createNoiseBuffer(duration) {
     return buffer;
 }
 
-/* Play one warm jelly-ball pop with a soft squeeze and rounded finish. */
-function playJellyPop(clusterSize) {
+/* Play one cartoon jelly bonk when a cluster pops. */
+function playJellyBonk(clusterSize) {
     if (muted || !audioContext) {
         return;
     }
@@ -232,153 +232,102 @@ function playJellyPop(clusterSize) {
         }
 
         const now = audioContext.currentTime;
-        const sizeAmount = clamp(
-            (clusterSize - 3) / 7,
-            0,
-            1
-        );
+        const sizeAmount = clamp((clusterSize - 3) / 7, 0, 1);
+        const pitchScale = 1 - sizeAmount * 0.3;
+        const volumeScale = 0.9 + sizeAmount * 0.3;
 
-        const pitchScale = 1 - sizeAmount * 0.25;
-        const volumeScale = 1 + sizeAmount * 0.25;
+        const out = audioContext.createGain();
 
-        const outputGain = audioContext.createGain();
+        out.gain.setValueAtTime(0.7 * volumeScale, now);
+        out.connect(audioContext.destination);
 
-        outputGain.gain.setValueAtTime(
-            0.8 * volumeScale,
-            now
-        );
-
-        outputGain.connect(audioContext.destination);
-
-        createJellySqueeze(
-            now,
-            pitchScale,
-            outputGain
-        );
-
-        createJellyBurst(
-            now + 0.045,
-            pitchScale,
-            outputGain
-        );
+        createJellySquish(now, pitchScale, out);
+        createJellyBonk(now + 0.02, pitchScale, out);
+        createJellyWobble(now + 0.1, pitchScale, out);
     } catch (error) {
-        console.warn("Color Dominion jelly pop could not play.", error);
+        console.warn("Color Dominion bonk could not play.", error);
     }
 }
 
-/* Create the soft low-frequency squeeze before the jelly ball bursts. */
-function createJellySqueeze(startTime, pitchScale, destination) {
-    const squeezeDuration = 0.055;
+/* Soft low squish before the bonk. */
+function createJellySquish(startTime, pitchScale, destination) {
     const oscillator = audioContext.createOscillator();
     const gain = audioContext.createGain();
 
     oscillator.type = "sine";
 
-    oscillator.frequency.setValueAtTime(
-        90 * pitchScale,
-        startTime
-    );
-
+    oscillator.frequency.setValueAtTime(70 * pitchScale, startTime);
     oscillator.frequency.linearRampToValueAtTime(
-        115 * pitchScale,
-        startTime + squeezeDuration
+        120 * pitchScale,
+        startTime + 0.04
     );
 
     gain.gain.setValueAtTime(0.0001, startTime);
-    gain.gain.exponentialRampToValueAtTime(
-        0.16,
-        startTime + 0.008
-    );
-    gain.gain.exponentialRampToValueAtTime(
-        0.0001,
-        startTime + squeezeDuration
-    );
+    gain.gain.linearRampToValueAtTime(0.35, startTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.06);
 
     oscillator.connect(gain);
     gain.connect(destination);
 
     oscillator.start(startTime);
-    oscillator.stop(startTime + squeezeDuration);
+    oscillator.stop(startTime + 0.08);
 }
 
-/* Create the warm wet burst and soft descending plip tail. */
-function createJellyBurst(startTime, pitchScale, destination) {
-    const burstDuration = 0.12;
-    const burstEnd = startTime + burstDuration;
-    const noiseBuffer = createNoiseBuffer(burstDuration);
-
-    if (noiseBuffer) {
-        const noiseSource = audioContext.createBufferSource();
-        const filter = audioContext.createBiquadFilter();
-        const noiseGain = audioContext.createGain();
-
-        noiseSource.buffer = noiseBuffer;
-
-        filter.type = "bandpass";
-        filter.frequency.setValueAtTime(
-            600 * pitchScale,
-            startTime
-        );
-        filter.Q.setValueAtTime(1.2, startTime);
-
-        noiseGain.gain.setValueAtTime(
-            0.0001,
-            startTime
-        );
-        noiseGain.gain.exponentialRampToValueAtTime(
-            0.58,
-            startTime + 0.003
-        );
-        noiseGain.gain.exponentialRampToValueAtTime(
-            0.0001,
-            burstEnd
-        );
-
-        noiseSource.connect(filter);
-        filter.connect(noiseGain);
-        noiseGain.connect(destination);
-
-        noiseSource.start(startTime);
-        noiseSource.stop(burstEnd);
-    }
-
-    const plipStart = startTime + 0.025;
-    const plipDuration = 0.09;
-    const plipEnd = plipStart + plipDuration;
-
+/* Cartoon head-hit bonk with a pitch drop. */
+function createJellyBonk(startTime, pitchScale, destination) {
     const oscillator = audioContext.createOscillator();
-    const plipGain = audioContext.createGain();
+    const gain = audioContext.createGain();
+
+    oscillator.type = "triangle";
+
+    oscillator.frequency.setValueAtTime(240 * pitchScale, startTime);
+    oscillator.frequency.exponentialRampToValueAtTime(
+        85 * pitchScale,
+        startTime + 0.11
+    );
+
+    gain.gain.setValueAtTime(0.0001, startTime);
+    gain.gain.linearRampToValueAtTime(0.55, startTime + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.16);
+
+    oscillator.connect(gain);
+    gain.connect(destination);
+
+    oscillator.start(startTime);
+    oscillator.stop(startTime + 0.18);
+}
+
+/* Wobbling boing tail after the bonk. */
+function createJellyWobble(startTime, pitchScale, destination) {
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    const lfo = audioContext.createOscillator();
+    const lfoGain = audioContext.createGain();
 
     oscillator.type = "sine";
-
-    oscillator.frequency.setValueAtTime(
-        300 * pitchScale,
-        plipStart
-    );
-
+    oscillator.frequency.setValueAtTime(160 * pitchScale, startTime);
     oscillator.frequency.exponentialRampToValueAtTime(
-        160 * pitchScale,
-        plipEnd
+        90 * pitchScale,
+        startTime + 0.22
     );
 
-    plipGain.gain.setValueAtTime(
-        0.0001,
-        plipStart
-    );
-    plipGain.gain.exponentialRampToValueAtTime(
-        0.16,
-        plipStart + 0.006
-    );
-    plipGain.gain.exponentialRampToValueAtTime(
-        0.0001,
-        plipEnd
-    );
+    lfo.type = "sine";
+    lfo.frequency.setValueAtTime(9, startTime);
+    lfoGain.gain.setValueAtTime(14, startTime);
+    lfo.connect(lfoGain);
+    lfoGain.connect(oscillator.frequency);
 
-    oscillator.connect(plipGain);
-    plipGain.connect(destination);
+    gain.gain.setValueAtTime(0.0001, startTime);
+    gain.gain.linearRampToValueAtTime(0.22, startTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.26);
 
-    oscillator.start(plipStart);
-    oscillator.stop(plipEnd);
+    oscillator.connect(gain);
+    gain.connect(destination);
+
+    oscillator.start(startTime);
+    oscillator.stop(startTime + 0.28);
+    lfo.start(startTime);
+    lfo.stop(startTime + 0.28);
 }
 
 /* Update the mute button icon and accessibility state. */
@@ -1057,7 +1006,7 @@ function findColorCluster(startRow, startCol, color) {
 /* Pop a matching cluster, create canvas effects, and play one jelly-pop sound. */
 function popCluster(cluster) {
     try {
-        playJellyPop(cluster.length);
+        playJellyBonk(cluster.length);
     } catch (error) {
         console.warn("Color Dominion jelly pop failed safely.", error);
     }
@@ -1474,7 +1423,7 @@ function showMenu() {
 
     buildLevelSelect();
     setStatus("Tap or drag to aim");
-    }
+                      }
 /* Draw the game background. */
 function drawBackground() {
     const gradient = ctx.createLinearGradient(0, 0, 0, height);
@@ -1593,7 +1542,7 @@ function drawBoard() {
     }
 }
 
-/* Draw one glossy, plump gel bubble. */
+/* Draw one plump shiny jelly candy bubble. */
 function drawBubble(x, y, colorIndex, radius, alpha, rotation) {
     const color = COLORS[colorIndex];
 
@@ -1602,70 +1551,105 @@ function drawBubble(x, y, colorIndex, radius, alpha, rotation) {
     ctx.translate(x, y);
     ctx.rotate(rotation || 0);
 
-    const shadow = ctx.createRadialGradient(
-        -radius * 0.28,
+    const body = ctx.createRadialGradient(
+        -radius * 0.3,
         -radius * 0.35,
-        radius * 0.12,
+        radius * 0.1,
         0,
         0,
         radius
     );
 
-    shadow.addColorStop(0, "#ffffff");
-    shadow.addColorStop(0.08, color.fill);
-    shadow.addColorStop(0.66, color.fill);
-    shadow.addColorStop(1, color.dark);
+    body.addColorStop(0, "#ffffff");
+    body.addColorStop(0.14, color.fill);
+    body.addColorStop(0.72, color.fill);
+    body.addColorStop(1, color.dark);
 
     ctx.beginPath();
     ctx.arc(0, 0, radius, 0, Math.PI * 2);
-    ctx.fillStyle = shadow;
+    ctx.fillStyle = body;
     ctx.fill();
 
-    const bottomGlow = ctx.createRadialGradient(
+    const bottomShadow = ctx.createRadialGradient(
         0,
-        radius * 0.55,
+        radius * 0.35,
+        radius * 0.05,
+        0,
+        radius * 0.35,
+        radius * 0.9
+    );
+
+    bottomShadow.addColorStop(0, "rgba(0, 0, 0, 0)");
+    bottomShadow.addColorStop(1, "rgba(0, 0, 0, 0.3)");
+
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.98, 0, Math.PI * 2);
+    ctx.fillStyle = bottomShadow;
+    ctx.fill();
+
+    const shine = ctx.createRadialGradient(
+        -radius * 0.35,
+        -radius * 0.42,
         radius * 0.02,
-        0,
-        radius * 0.55,
-        radius * 0.58
+        -radius * 0.35,
+        -radius * 0.42,
+        radius * 0.6
     );
 
-    bottomGlow.addColorStop(0, color.dark + "59");
-    bottomGlow.addColorStop(0.55, color.dark + "24");
-    bottomGlow.addColorStop(1, color.dark + "00");
-
-    ctx.beginPath();
-    ctx.arc(0, 0, radius * 0.94, 0, Math.PI * 2);
-    ctx.fillStyle = bottomGlow;
-    ctx.fill();
-
-    ctx.lineWidth = Math.max(1.2, radius * 0.08);
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.ellipse(
-        -radius * 0.3,
-        -radius * 0.38,
-        radius * 0.34,
-        radius * 0.18,
-        -0.45,
-        0,
-        Math.PI * 2
-    );
-    ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
-    ctx.fill();
+    shine.addColorStop(0, "rgba(255, 255, 255, 0.95)");
+    shine.addColorStop(0.3, "rgba(255, 255, 255, 0.4)");
+    shine.addColorStop(0.65, "rgba(255, 255, 255, 0.08)");
+    shine.addColorStop(1, "rgba(255, 255, 255, 0)");
 
     ctx.beginPath();
     ctx.arc(
-        radius * 0.03,
-        -radius * 0.12,
-        radius * 0.09,
+        -radius * 0.35,
+        -radius * 0.42,
+        radius * 0.6,
         0,
         Math.PI * 2
     );
-    ctx.fillStyle = "rgba(255, 255, 255, 0.32)";
+    ctx.fillStyle = shine;
     ctx.fill();
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(
+        0,
+        0,
+        radius * 0.88,
+        Math.PI * 0.15,
+        Math.PI * 0.85
+    );
+    ctx.lineWidth = Math.max(2, radius * 0.16);
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.lineWidth = Math.max(1, radius * 0.07);
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.93, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(
+        radius * 0.28,
+        -radius * 0.08,
+        radius * 0.12,
+        0,
+        Math.PI * 2
+    );
+    ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+    ctx.fill();
+
+    ctx.lineWidth = Math.max(1.2, radius * 0.08);
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.22)";
+
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.98, 0, Math.PI * 2);
+    ctx.stroke();
 
     drawBubbleGlyph(color.glyph, radius);
 
