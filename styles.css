@@ -123,6 +123,13 @@ button {
     font-weight: 800;
 }
 
+.hud-actions {
+    justify-self: end;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
 .icon-button {
     justify-self: end;
     width: 42px;
@@ -139,6 +146,16 @@ button {
 
 .icon-button:active {
     transform: scale(0.96);
+}
+
+#muteButton {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+#muteButton.muted {
+    background: rgba(255, 255, 255, 0.045);
+    color: var(--muted);
 }
 
 #gameArea {
@@ -395,4 +412,4 @@ h2 {
     .level-select {
         margin-top: 12px;
     }
-  }
+    }
