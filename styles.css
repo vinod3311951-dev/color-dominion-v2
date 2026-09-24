@@ -123,6 +123,15 @@ button {
     font-weight: 800;
 }
 
+#chapterValue {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
 .hud-actions {
     justify-self: end;
     display: flex;
@@ -316,6 +325,31 @@ h2 {
 .secondary-button:active,
 .text-button:active {
     transform: scale(0.985);
+}
+
+.chapter-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin: 14px 0 6px;
+}
+
+.chapter-tab {
+    padding: 7px 4px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--muted);
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+}
+
+.chapter-tab.selected {
+    border-color: rgba(255, 214, 90, 0.8);
+    background: rgba(255, 214, 90, 0.14);
+    color: var(--text);
 }
 
 .level-select {
