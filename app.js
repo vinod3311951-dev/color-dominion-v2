@@ -174,6 +174,7 @@ function ensureAudioContext() {
             }
 
             audioContext = new AudioContextClass();
+            if (navigator.audioSession) { navigator.audioSession.type = "playback"; }
         }
 
         if (audioContext.state === "suspended") {
