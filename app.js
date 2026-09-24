@@ -5,6 +5,7 @@ const ctx = canvas.getContext("2d");
 
 const scoreValue = document.getElementById("scoreValue");
 const levelValue = document.getElementById("levelValue");
+const chapterValue = document.getElementById("chapterValue");
 const statusBar = document.getElementById("statusBar");
 
 const startModal = document.getElementById("startModal");
@@ -26,10 +27,21 @@ const resultScore = document.getElementById("resultScore");
 const nextButton = document.getElementById("nextButton");
 const retryButton = document.getElementById("retryButton");
 const menuButton = document.getElementById("menuButton");
+const chapterTabs = document.getElementById("chapterTabs");
 const levelSelect = document.getElementById("levelSelect");
 
 const STORAGE_KEY = "colordominion";
-const MAX_LEVEL = 3;
+const MAX_LEVEL = 105;
+
+const CHAPTERS = [
+    { name: "Awakening", color: "#4f8cff" },
+    { name: "Ripple", color: "#42d887" },
+    { name: "Cascade", color: "#ffd84d" },
+    { name: "Aftershock", color: "#ff5364" },
+    { name: "Monarch", color: "#ae6cff" },
+    { name: "Vortex", color: "#ff8d55" },
+    { name: "Dominion", color: "#ffd65a" }
+];
 
 const COLORS = [
     { name: "red", fill: "#ff5364", dark: "#a51f3b", glyph: "circle" },
@@ -37,30 +49,6 @@ const COLORS = [
     { name: "green", fill: "#42d887", dark: "#157446", glyph: "square" },
     { name: "yellow", fill: "#ffd84d", dark: "#a76e00", glyph: "diamond" },
     { name: "purple", fill: "#ae6cff", dark: "#6730a7", glyph: "cross" }
-];
-
-const LEVELS = [
-    {
-        rows: 4,
-        colors: 3,
-        goal: 900,
-        medium: 1200,
-        high: 1550
-    },
-    {
-        rows: 5,
-        colors: 4,
-        goal: 1300,
-        medium: 1750,
-        high: 2250
-    },
-    {
-        rows: 6,
-        colors: 5,
-        goal: 1750,
-        medium: 2350,
-        high: 3000
-    }
 ];
 
 let width = 0;
@@ -83,6 +71,7 @@ let previousGeneratedColor = null;
 let score = 0;
 let currentLevel = 1;
 let selectedLevel = 1;
+let selectedChapter = 1;
 
 let gameState = "menu";
 let aimActive = false;
@@ -105,6 +94,7 @@ let muted = false;
 
 let saveData = loadSaveData();
 muted = Boolean(saveData.muted);
+selectedChapter = saveData.selectedChapter;
 
 /* Create a safe default save object. */
 function createDefaultSave() {
@@ -113,7 +103,8 @@ function createDefaultSave() {
         currentLevel: 1,
         levelHighScores: {},
         stars: {},
-        muted: false
+        muted: false,
+        selectedChapter: 1
     };
 }
 
@@ -129,13 +120,20 @@ function loadSaveData() {
         }
 
         const parsed = JSON.parse(raw);
+        const savedChapter = Number(parsed.selectedChapter);
 
         return {
             highScore: Number(parsed.highScore) || 0,
-            currentLevel: clamp(Number(parsed.currentLevel) || 1, 1, MAX_LEVEL),
+            currentLevel: clamp(Number(parsed.currentLevel) || 1, 1, 105),
             levelHighScores: parsed.levelHighScores || {},
             stars: parsed.stars || {},
-            muted: typeof parsed.muted === "boolean" ? parsed.muted : false
+            muted: typeof parsed.muted === "boolean" ? parsed.muted : false,
+            selectedChapter:
+                Number.isInteger(savedChapter) &&
+                savedChapter >= 1 &&
+                savedChapter <= 7
+                    ? savedChapter
+                    : 1
         };
     } catch (error) {
         return fallback;
@@ -146,6 +144,7 @@ function loadSaveData() {
 function saveProgress() {
     try {
         saveData.muted = muted;
+        saveData.selectedChapter = selectedChapter;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
     } catch (error) {
         console.warn("Color Dominion progress could not be saved.", error);
@@ -346,35 +345,95 @@ function updateBoardMetrics() {
     dangerLineY = height - bubbleRadius * 5.1;
 }
 
-/* Return the active level configuration. */
-function getLevelConfig() {
-    return LEVELS[currentLevel - 1];
+/* Return chapter information for an absolute level number. */
+function getChapterInfo(levelNumber) {
+    const level = clamp(Number(levelNumber) || 1, 1, MAX_LEVEL);
+    const chapter = Math.floor((level - 1) / 15) + 1;
+    const chapterData = CHAPTERS[chapter - 1];
+
+    return {
+        chapter: chapter,
+        name: chapterData.name,
+        color: chapterData.color
+    };
 }
 
-/* Build the level-selection buttons. */
+/* Return the active level configuration. */
+function getLevelConfig() {
+    const level = clamp(currentLevel, 1, MAX_LEVEL);
+    const chapterInfo = getChapterInfo(level);
+    const rowsByChapter = [4, 5, 6, 7, 8, 9, 10];
+    const colorsByChapter = [3, 3, 4, 4, 5, 5, 5];
+    const base = 900 + (level - 1) * 90;
+
+    return {
+        rows: rowsByChapter[chapterInfo.chapter - 1],
+        colors: colorsByChapter[chapterInfo.chapter - 1],
+        goal: base,
+        medium: Math.round(base * 1.35),
+        high: Math.round(base * 1.75),
+        chapter: chapterInfo.chapter,
+        chapterName: chapterInfo.name,
+        chapterColor: chapterInfo.color
+    };
+}
+
+/* Build the chapter tabs and level-selection buttons. */
 function buildLevelSelect() {
+    chapterTabs.innerHTML = "";
     levelSelect.innerHTML = "";
 
-    for (let level = 1; level <= MAX_LEVEL; level += 1) {
+    for (let chapter = 1; chapter <= CHAPTERS.length; chapter += 1) {
+        const chapterData = CHAPTERS[chapter - 1];
         const button = document.createElement("button");
-        const stars = Number(saveData.stars[level]) || 0;
+
+        button.type = "button";
+        button.className = "chapter-tab";
+        button.textContent =
+            "Ch. " +
+            chapter +
+            " — " +
+            chapterData.name;
+
+        if (chapter === selectedChapter) {
+            button.classList.add("selected");
+        }
+
+        button.addEventListener("click", function () {
+            selectedChapter = chapter;
+            saveData.selectedChapter = selectedChapter;
+            saveProgress();
+            buildLevelSelect();
+        });
+
+        chapterTabs.appendChild(button);
+    }
+
+    const chapterStart = (selectedChapter - 1) * 15 + 1;
+
+    for (let relativeLevel = 1; relativeLevel <= 15; relativeLevel += 1) {
+        const absoluteLevel = chapterStart + relativeLevel - 1;
+        const button = document.createElement("button");
+        const stars =
+            Number(saveData.stars[String(absoluteLevel)]) || 0;
 
         button.type = "button";
         button.className = "level-button";
 
-        if (level === selectedLevel) {
+        if (absoluteLevel === selectedLevel) {
             button.classList.add("selected");
         }
 
         button.innerHTML =
-            '<span class="level-number">Level ' +
-            level +
+            '<span class="level-number">' +
+            relativeLevel +
             '</span><span class="level-stars">' +
             formatStars(stars) +
             "</span>";
 
         button.addEventListener("click", function () {
-            selectedLevel = level;
+            selectedLevel = absoluteLevel;
+            selectedChapter = getChapterInfo(selectedLevel).chapter;
             buildLevelSelect();
         });
 
@@ -399,6 +458,7 @@ function formatStars(stars) {
 
 /* Start the selected level. */
 function startSelectedLevel() {
+    selectedChapter = getChapterInfo(selectedLevel).chapter;
     startLevel(selectedLevel);
 }
 
@@ -406,6 +466,7 @@ function startSelectedLevel() {
 function startLevel(levelNumber) {
     currentLevel = clamp(levelNumber, 1, MAX_LEVEL);
     selectedLevel = currentLevel;
+    selectedChapter = getChapterInfo(currentLevel).chapter;
 
     score = 0;
     projectile = null;
@@ -485,10 +546,13 @@ function removeImmediateStartingClusters() {
     }
 }
 
-/* Update score and level labels. */
+/* Update score, level, and chapter labels. */
 function updateHud() {
+    const chapterInfo = getChapterInfo(currentLevel);
+
     scoreValue.textContent = String(score);
     levelValue.textContent = "Level " + currentLevel;
+    chapterValue.textContent = chapterInfo.name;
 }
 
 /* Update the short gameplay instruction. */
@@ -1336,8 +1400,10 @@ function finishLoss() {
 /* Continue after a successful level. */
 function handleNextLevel() {
     if (currentLevel < MAX_LEVEL) {
+        selectedChapter = getChapterInfo(currentLevel + 1).chapter;
         startLevel(currentLevel + 1);
     } else {
+        selectedChapter = getChapterInfo(1).chapter;
         startLevel(1);
     }
 }
@@ -1381,6 +1447,8 @@ function showMenu() {
         1,
         MAX_LEVEL
     );
+
+    selectedChapter = getChapterInfo(selectedLevel).chapter;
 
     pauseModal.classList.add("hidden");
     resultModal.classList.add("hidden");
@@ -2067,6 +2135,8 @@ function initializeGame() {
         1,
         MAX_LEVEL
     );
+
+    selectedChapter = getChapterInfo(selectedLevel).chapter;
 
     resizeCanvas();
     buildLevelSelect();
