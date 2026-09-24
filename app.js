@@ -294,6 +294,202 @@ function createSpringRing(startTime, pitchScale, destination) {
     lfo.stop(startTime + ringDuration + 0.05);
 }
 
+/* Play a soft rising whoosh when the player fires a bubble. */
+function playShootSound() {
+    if (muted || !audioContext || audioContext.state !== "running") {
+        return;
+    }
+
+    try {
+        const now = audioContext.currentTime;
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        const filter = audioContext.createBiquadFilter();
+        const airyOscillator = audioContext.createOscillator();
+        const airyGain = audioContext.createGain();
+
+        oscillator.type = "triangle";
+        oscillator.frequency.setValueAtTime(220, now);
+        oscillator.frequency.exponentialRampToValueAtTime(660, now + 0.09);
+
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(1800, now);
+        filter.frequency.exponentialRampToValueAtTime(4200, now + 0.09);
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(0.18, now + 0.008);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+        airyOscillator.type = "sine";
+        airyOscillator.frequency.setValueAtTime(440, now);
+        airyOscillator.frequency.exponentialRampToValueAtTime(1320, now + 0.09);
+
+        airyGain.gain.setValueAtTime(0.0001, now);
+        airyGain.gain.linearRampToValueAtTime(0.072, now + 0.008);
+        airyGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+        oscillator.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioContext.destination);
+
+        airyOscillator.connect(airyGain);
+        airyGain.connect(audioContext.destination);
+
+        oscillator.start(now);
+        oscillator.stop(now + 0.15);
+        airyOscillator.start(now);
+        airyOscillator.stop(now + 0.15);
+    } catch (error) {
+        console.warn("Color Dominion shoot sound could not play.", error);
+    }
+}
+
+/* Play a light pitched tick when a fired bubble attaches to the grid. */
+function playAttachSound() {
+    if (muted || !audioContext || audioContext.state !== "running") {
+        return;
+    }
+
+    try {
+        const now = audioContext.currentTime;
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+
+        oscillator.type = "triangle";
+        oscillator.frequency.setValueAtTime(520, now);
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(0.22, now + 0.002);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.045);
+
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+
+        oscillator.start(now);
+        oscillator.stop(now + 0.055);
+    } catch (error) {
+        console.warn("Color Dominion attach sound could not play.", error);
+    }
+}
+
+/* Play a descending whoosh when unsupported bubbles drop away. */
+function playDropSound(droppedCount) {
+    if (muted || !audioContext || audioContext.state !== "running") {
+        return;
+    }
+
+    try {
+        const now = audioContext.currentTime;
+        const pitchScale = droppedCount > 5 ? 1.15 : 1;
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        const bodyOscillator = audioContext.createOscillator();
+        const bodyGain = audioContext.createGain();
+
+        oscillator.type = "triangle";
+        oscillator.frequency.setValueAtTime(900 * pitchScale, now);
+        oscillator.frequency.exponentialRampToValueAtTime(
+            240 * pitchScale,
+            now + 0.32
+        );
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(0.2, now + 0.005);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
+
+        bodyOscillator.type = "triangle";
+        bodyOscillator.frequency.setValueAtTime(450 * pitchScale, now);
+        bodyOscillator.frequency.exponentialRampToValueAtTime(
+            120 * pitchScale,
+            now + 0.32
+        );
+
+        bodyGain.gain.setValueAtTime(0.0001, now);
+        bodyGain.gain.linearRampToValueAtTime(0.1, now + 0.005);
+        bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
+
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+        bodyOscillator.connect(bodyGain);
+        bodyGain.connect(audioContext.destination);
+
+        oscillator.start(now);
+        oscillator.stop(now + 0.4);
+        bodyOscillator.start(now);
+        bodyOscillator.stop(now + 0.4);
+    } catch (error) {
+        console.warn("Color Dominion drop sound could not play.", error);
+    }
+}
+
+/* Play a short happy three-note arpeggio when a level is won. */
+function playWinSound() {
+    if (muted || !audioContext || audioContext.state !== "running") {
+        return;
+    }
+
+    try {
+        const now = audioContext.currentTime;
+        const notes = [523, 659, 784];
+        const offsets = [0, 0.1, 0.2];
+
+        for (let index = 0; index < notes.length; index += 1) {
+            const startTime = now + offsets[index];
+            const oscillator = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+
+            oscillator.type = "triangle";
+            oscillator.frequency.setValueAtTime(notes[index], startTime);
+
+            gain.gain.setValueAtTime(0.0001, startTime);
+            gain.gain.linearRampToValueAtTime(0.28, startTime + 0.006);
+            gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.22);
+
+            oscillator.connect(gain);
+            gain.connect(audioContext.destination);
+
+            oscillator.start(startTime);
+            oscillator.stop(startTime + 0.24);
+        }
+    } catch (error) {
+        console.warn("Color Dominion win sound could not play.", error);
+    }
+}
+
+/* Play a soft descending two-note sigh when a level is lost. */
+function playLossSound() {
+    if (muted || !audioContext || audioContext.state !== "running") {
+        return;
+    }
+
+    try {
+        const now = audioContext.currentTime;
+        const notes = [392, 294];
+        const offsets = [0, 0.18];
+
+        for (let index = 0; index < notes.length; index += 1) {
+            const startTime = now + offsets[index];
+            const oscillator = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+
+            oscillator.type = "triangle";
+            oscillator.frequency.setValueAtTime(notes[index], startTime);
+
+            gain.gain.setValueAtTime(0.0001, startTime);
+            gain.gain.linearRampToValueAtTime(0.22, startTime + 0.008);
+            gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.3);
+
+            oscillator.connect(gain);
+            gain.connect(audioContext.destination);
+
+            oscillator.start(startTime);
+            oscillator.stop(startTime + 0.32);
+        }
+    } catch (error) {
+        console.warn("Color Dominion loss sound could not play.", error);
+    }
+}
+
 /* Update the mute button icon and accessibility state. */
 function updateMuteButton() {
     muteButton.textContent = muted ? "🔇" : "🔊";
@@ -787,6 +983,8 @@ function shootBubble(targetX, targetY) {
         color: nextColor
     };
 
+    playShootSound();
+
     nextColor = chooseNextColor();
 
     setStatus("Match 3+ bubbles");
@@ -887,6 +1085,8 @@ function attachProjectile(collidedBubble) {
         col: target.col,
         color: projectileColor
     };
+
+    playAttachSound();
 
     projectile = null;
 
@@ -1127,6 +1327,10 @@ function removeDisconnectedBubbles() {
         }
     }
 
+    if (dropped > 0) {
+        playDropSound(dropped);
+    }
+
     return dropped;
 }
 
@@ -1203,6 +1407,8 @@ function beginWinCelebration() {
     if (celebrationActive) {
         return;
     }
+
+    playWinSound();
 
     gameState = "celebrating";
     celebrationActive = true;
@@ -1370,6 +1576,8 @@ function finishWin() {
 
 /* Finish a failed level and show its result modal. */
 function finishLoss() {
+    playLossSound();
+
     gameState = "result";
     projectile = null;
     aimActive = false;
