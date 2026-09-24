@@ -194,33 +194,7 @@ function ensureAudioContext() {
     }
 }
 
-/* Create a short noise buffer for synthesized sound effects. */
-function createNoiseBuffer(duration) {
-    if (!audioContext) {
-        return null;
-    }
-
-    const frameCount = Math.max(
-        1,
-        Math.floor(audioContext.sampleRate * duration)
-    );
-
-    const buffer = audioContext.createBuffer(
-        1,
-        frameCount,
-        audioContext.sampleRate
-    );
-
-    const data = buffer.getChannelData(0);
-
-    for (let index = 0; index < frameCount; index += 1) {
-        data[index] = Math.random() * 2 - 1;
-    }
-
-    return buffer;
-}
-
-/* Play one cartoon jelly bonk when a cluster pops. */
+/* Play one bright cartoon spring "toiiiiiing" when a cluster pops. */
 function playJellyBonk(clusterSize) {
     if (muted || !audioContext) {
         return;
@@ -233,101 +207,92 @@ function playJellyBonk(clusterSize) {
 
         const now = audioContext.currentTime;
         const sizeAmount = clamp((clusterSize - 3) / 7, 0, 1);
-        const pitchScale = 1 - sizeAmount * 0.3;
-        const volumeScale = 0.9 + sizeAmount * 0.3;
+        const pitchScale = 1 - sizeAmount * 0.12;
+        const volumeScale = 0.85 + sizeAmount * 0.25;
 
         const out = audioContext.createGain();
 
-        out.gain.setValueAtTime(0.7 * volumeScale, now);
+        out.gain.setValueAtTime(0.55 * volumeScale, now);
         out.connect(audioContext.destination);
 
-        createJellySquish(now, pitchScale, out);
-        createJellyBonk(now + 0.02, pitchScale, out);
-        createJellyWobble(now + 0.1, pitchScale, out);
+        createSpringPluck(now, pitchScale, out);
+        createSpringRing(now + 0.01, pitchScale, out);
     } catch (error) {
-        console.warn("Color Dominion bonk could not play.", error);
+        console.warn("Color Dominion spring sound could not play.", error);
     }
 }
 
-/* Soft low squish before the bonk. */
-function createJellySquish(startTime, pitchScale, destination) {
-    const oscillator = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-
-    oscillator.type = "sine";
-
-    oscillator.frequency.setValueAtTime(70 * pitchScale, startTime);
-    oscillator.frequency.linearRampToValueAtTime(
-        120 * pitchScale,
-        startTime + 0.04
-    );
-
-    gain.gain.setValueAtTime(0.0001, startTime);
-    gain.gain.linearRampToValueAtTime(0.35, startTime + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.06);
-
-    oscillator.connect(gain);
-    gain.connect(destination);
-
-    oscillator.start(startTime);
-    oscillator.stop(startTime + 0.08);
-}
-
-/* Cartoon head-hit bonk with a pitch drop. */
-function createJellyBonk(startTime, pitchScale, destination) {
+/* Bright plucked attack: quick upward bend into the note. */
+function createSpringPluck(startTime, pitchScale, destination) {
     const oscillator = audioContext.createOscillator();
     const gain = audioContext.createGain();
 
     oscillator.type = "triangle";
 
-    oscillator.frequency.setValueAtTime(240 * pitchScale, startTime);
+    oscillator.frequency.setValueAtTime(700 * pitchScale, startTime);
     oscillator.frequency.exponentialRampToValueAtTime(
-        85 * pitchScale,
-        startTime + 0.11
+        1100 * pitchScale,
+        startTime + 0.07
     );
 
     gain.gain.setValueAtTime(0.0001, startTime);
-    gain.gain.linearRampToValueAtTime(0.55, startTime + 0.008);
-    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.16);
+    gain.gain.linearRampToValueAtTime(0.45, startTime + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.14);
 
     oscillator.connect(gain);
     gain.connect(destination);
 
     oscillator.start(startTime);
-    oscillator.stop(startTime + 0.18);
+    oscillator.stop(startTime + 0.16);
 }
 
-/* Wobbling boing tail after the bonk. */
-function createJellyWobble(startTime, pitchScale, destination) {
+/* Long ringing spring tail with vibrato — the "iiiiiing". */
+function createSpringRing(startTime, pitchScale, destination) {
+    const ringDuration = 0.5;
     const oscillator = audioContext.createOscillator();
     const gain = audioContext.createGain();
+    const shimmer = audioContext.createOscillator();
+    const shimmerGain = audioContext.createGain();
     const lfo = audioContext.createOscillator();
     const lfoGain = audioContext.createGain();
 
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(160 * pitchScale, startTime);
-    oscillator.frequency.exponentialRampToValueAtTime(
-        90 * pitchScale,
-        startTime + 0.22
-    );
+    oscillator.type = "triangle";
+    oscillator.frequency.setValueAtTime(1100 * pitchScale, startTime);
+
+    shimmer.type = "sine";
+    shimmer.frequency.setValueAtTime(2200 * pitchScale, startTime);
 
     lfo.type = "sine";
-    lfo.frequency.setValueAtTime(9, startTime);
-    lfoGain.gain.setValueAtTime(14, startTime);
+    lfo.frequency.setValueAtTime(7, startTime);
+    lfoGain.gain.setValueAtTime(18, startTime);
     lfo.connect(lfoGain);
     lfoGain.connect(oscillator.frequency);
 
     gain.gain.setValueAtTime(0.0001, startTime);
-    gain.gain.linearRampToValueAtTime(0.22, startTime + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.26);
+    gain.gain.linearRampToValueAtTime(0.32, startTime + 0.008);
+    gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        startTime + ringDuration
+    );
+
+    shimmerGain.gain.setValueAtTime(0.0001, startTime);
+    shimmerGain.gain.linearRampToValueAtTime(0.09, startTime + 0.01);
+    shimmerGain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        startTime + ringDuration * 0.8
+    );
 
     oscillator.connect(gain);
     gain.connect(destination);
+    shimmer.connect(shimmerGain);
+    shimmerGain.connect(destination);
 
     oscillator.start(startTime);
-    oscillator.stop(startTime + 0.28);
+    oscillator.stop(startTime + ringDuration + 0.05);
+    shimmer.start(startTime);
+    shimmer.stop(startTime + ringDuration + 0.05);
     lfo.start(startTime);
-    lfo.stop(startTime + 0.28);
+    lfo.stop(startTime + ringDuration + 0.05);
 }
 
 /* Update the mute button icon and accessibility state. */
@@ -1003,12 +968,12 @@ function findColorCluster(startRow, startCol, color) {
     return cluster;
 }
 
-/* Pop a matching cluster, create canvas effects, and play one jelly-pop sound. */
+/* Pop a matching cluster, create canvas effects, and play one spring sound. */
 function popCluster(cluster) {
     try {
         playJellyBonk(cluster.length);
     } catch (error) {
-        console.warn("Color Dominion jelly pop failed safely.", error);
+        console.warn("Color Dominion spring sound failed safely.", error);
     }
 
     for (const bubble of cluster) {
@@ -1423,7 +1388,7 @@ function showMenu() {
 
     buildLevelSelect();
     setStatus("Tap or drag to aim");
-                      }
+        }
 /* Draw the game background. */
 function drawBackground() {
     const gradient = ctx.createLinearGradient(0, 0, 0, height);
